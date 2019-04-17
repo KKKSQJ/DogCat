@@ -78,6 +78,10 @@ def train(**kwargs):
         loss_meter.reset()
         confusion_matrix.reset()
 
+        train_loss = 0.
+        train_acc = 0.
+        i = 0
+
         for ii,(data,label) in tqdm(enumerate(train_dataloader)):
 
             # train model 
@@ -88,6 +92,15 @@ def train(**kwargs):
             optimizer.zero_grad()
             score = model(input)
             loss = criterion(score,target)
+
+            train_loss += loss.item()
+            pred = t.max(score, 1)[1]
+            train_correct = (pred==target).sum()
+            train_acc += train_correct.item()
+            print('epoch ', epoch, ' batch ', i)
+            i+=1
+            print('Train Loss: %f, Acc: %f' % (loss.item(), train_correct.item() / float(len(data))))
+
             loss.backward()
             optimizer.step()
             
@@ -105,11 +118,14 @@ def train(**kwargs):
                     import ipdb;
                     ipdb.set_trace()
 
+        print('Train Loss: {:.6f}, Acc: {:.6f}'.format(train_loss / (len(
+            train_data)), train_acc / (len(train_data))))
+
 
         model.save()
 
         # validate and visualize
-        val_cm,val_accuracy = val(model,val_dataloader)
+        val_cm,val_accuracy = val(model,val_dataloader, criterion, val_data)
 
         vis.plot('val_accuracy',val_accuracy)
         vis.log("epoch:{epoch},lr:{lr},loss:{loss},train_cm:{train_cm},val_cm:{val_cm}".format(
@@ -126,16 +142,31 @@ def train(**kwargs):
         previous_loss = loss_meter.value()[0]
 
 @t.no_grad()
-def val(model,dataloader):
+def val(model,dataloader, criterion, val_data):
     """
     计算模型在验证集上的准确率等信息
     """
     model.eval()
+
+    eval_loss = 0.
+    eval_acc = 0.
+
     confusion_matrix = meter.ConfusionMeter(2)
     for ii, (val_input, label) in tqdm(enumerate(dataloader)):
         val_input = val_input.to(opt.device)
+        label = label.to(opt.device)
         score = model(val_input)
         confusion_matrix.add(score.detach().squeeze(), label.type(t.LongTensor))
+
+        loss = criterion(score, label)
+        eval_loss +=loss.item()
+        pred = t.max(score,1)[1]
+        e_correct = (pred==label).sum()
+        eval_acc += e_correct.item()
+
+    print('Test Loss: {:.6f}, Acc: {:.6f}'.format(eval_loss / (len(
+            val_data)), eval_acc / (len(val_data))))
+
 
     model.train()
     cm_value = confusion_matrix.value()
