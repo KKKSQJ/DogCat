@@ -21,8 +21,8 @@ def test(**kwargs):
     model.to(opt.device)
 
     # data
-    train_data = DogCat(opt.test_data_root,test=True)
-    test_dataloader = DataLoader(train_data,batch_size=opt.batch_size,shuffle=False,num_workers=opt.num_workers)
+    test_data = DogCat(opt.test_data_root,test=True)
+    test_dataloader = DataLoader(test_data,batch_size=opt.batch_size,shuffle=False,num_workers=opt.num_workers)
     results = []
     for ii,(data,path) in tqdm(enumerate(test_dataloader)):
         input = data.to(opt.device)
@@ -122,7 +122,9 @@ def train(**kwargs):
             train_data)), train_acc / (len(train_data))))
 
 
-        model.save()
+        # model.save()
+        prefix = 'checkpoints/' + opt.model + '_a'+str(epoch)+'.pth'
+        t.save(model.state_dict(), prefix)
 
         # validate and visualize
         val_cm,val_accuracy = val(model,val_dataloader, criterion, val_data)
